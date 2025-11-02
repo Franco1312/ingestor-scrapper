@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag  # type: ignore
 
 from ingestor_scrapper.core.entities import Document, Record
 from ingestor_scrapper.core.ports import HtmlParser
@@ -57,15 +57,12 @@ class AdapterBcraParser(HtmlParser):
             Exception: If parsing fails
         """
         try:
-            # Validate input
             if not document.text or not document.text.strip():
                 logger.warning("Empty HTML content for URL: %s", document.url)
                 return []
 
-            # Parse HTML with BeautifulSoup
             soup = BeautifulSoup(document.text, self.parser)
 
-            # Find all table rows and extract data
             rows = soup.find_all("tr")
             records = []
 
@@ -82,8 +79,23 @@ class AdapterBcraParser(HtmlParser):
 
             return records
 
-        except Exception as e:
-            logger.error("Error parsing BCRA page %s: %s", document.url, e)
+        except (AttributeError, TypeError, ValueError) as e:
+            # Specific exceptions from BeautifulSoup operations
+            logger.error(
+                "Parsing error on BCRA page %s: %s",
+                document.url,
+                e,
+                exc_info=True,
+            )
+            return []
+        except (RuntimeError, OSError, IOError) as e:
+            # Catch-all for unexpected runtime/system errors (e.g., parser not found)
+            logger.error(
+                "Unexpected error parsing BCRA page %s: %s",
+                document.url,
+                e,
+                exc_info=True,
+            )
             return []
 
     def _extract_record_from_row(self, row: Tag, url: str) -> Optional[Record]:

@@ -1,10 +1,10 @@
 """
-BCRA spider - Scrapes pages from www.bcra.gob.ar.
+BCRA Monetario Spider - Finds and downloads Excel files from BCRA Monetario Diario page.
 
 This spider demonstrates the Clean Architecture layers:
-1. Uses BcraUseCase from application layer
-2. Injects adapters (Scrapy fetcher, BCRA parser, JSON output)
-3. Executes the use case to crawl and parse BCRA pages
+1. Uses BcraMonetarioUseCase from application layer
+2. Injects adapters (Scrapy fetcher, Excel parser, normalizer, output)
+3. Executes the use case to crawl and parse BCRA Excel files
 
 Best practices applied:
 - Constants for URLs and configuration
@@ -12,7 +12,7 @@ Best practices applied:
 - Specific exception handling
 - Clear error messages
 
-Run with: scrapy crawl bcra
+Run with: scrapy crawl bcra_monetario
 """
 
 import logging
@@ -21,25 +21,31 @@ import scrapy  # type: ignore
 from scrapy.http import Response  # type: ignore
 
 from ingestor_scrapper.adapters.fetchers import AdapterScrapyDocumentFetcher
-from ingestor_scrapper.adapters.normalizers import AdapterBcraNormalizer
+from ingestor_scrapper.adapters.normalizers import (
+    AdapterBcraMonetarioNormalizer,
+)
 from ingestor_scrapper.adapters.outputs import AdapterJsonOutput
-from ingestor_scrapper.adapters.parsers import AdapterBcraParser
-from ingestor_scrapper.application.bcra_use_case import BcraUseCase
+from ingestor_scrapper.adapters.parsers.bcra_excel import (
+    AdapterBcraExcelParser,
+)
+from ingestor_scrapper.application.bcra_monetario_use_case import (
+    BcraMonetarioUseCase,
+)
 
 logger = logging.getLogger(__name__)
 
 # Constants for better maintainability
 BCRA_BASE_URL = "https://www.bcra.gob.ar"
-BCRA_PRINCIPALES_VARIABLES_URL = (
-    f"{BCRA_BASE_URL}/PublicacionesEstadisticas/Principales_variables.asp"
+BCRA_MONETARIO_URL = (
+    f"{BCRA_BASE_URL}/PublicacionesEstadisticas/Informe_monetario_diario.asp"
 )
 BCRA_DOMAINS = ["bcra.gob.ar", "www.bcra.gob.ar"]
-JSON_OUTPUT_FILE = "bcra_data.json"
+JSON_OUTPUT_FILE = "bcra_monetario_data.json"
 
 
-class BcraSpider(scrapy.Spider):
+class BcraMonetarioSpider(scrapy.Spider):
     """
-    Spider that crawls www.bcra.gob.ar and extracts financial/statistical data.
+    Spider that finds and downloads Excel files from BCRA Monetario Diario page.
 
     This spider demonstrates the Clean Architecture pattern:
     - Spider (interface layer) orchestrates the use case
@@ -53,29 +59,17 @@ class BcraSpider(scrapy.Spider):
     - Clear separation of concerns
     """
 
-    name = "bcra"
+    name = "bcra_monetario"
     allowed_domains = BCRA_DOMAINS
-    start_urls = [BCRA_PRINCIPALES_VARIABLES_URL]
+    start_urls = [BCRA_MONETARIO_URL]
 
     def parse(self, response: Response) -> None:
         """
-        Parse the response using Clean Architecture layers.
-
-        This method:
-        1. Validates the response
-        2. Creates adapters (fetcher, parser, output)
-        3. Creates and executes the use case
-        4. Logs the results
+        Parse the BCRA Monetario page to find Excel download links.
 
         Args:
             response: Scrapy Response object
-
-        Best practices:
-        - Validate response before processing
-        - Use specific exceptions when possible
-        - Clear error messages for debugging
         """
-        # Validate response (best practice: check early)
         if not self._is_valid_response(response):
             logger.warning(
                 "Invalid response for URL %s: status %d",
@@ -84,15 +78,77 @@ class BcraSpider(scrapy.Spider):
             )
             return
 
+        # Look for Excel download links
+        excel_links = response.xpath(
+            '//a[contains(@href, ".xls") or contains(@href, ".xlsx")]/@href'
+        ).getall()
+
+        # Also try case-insensitive search
+        if not excel_links:
+            excel_links = response.xpath(
+                '//a[contains(translate(@href, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), ".xls")]/@href'
+            ).getall()
+
+        logger.info(
+            "Found %d Excel link(s) on %s",
+            len(excel_links),
+            response.url,
+        )
+
+        if not excel_links:
+            # Log the page content for debugging
+            logger.warning(
+                "No Excel links found. Page content (first 2000 chars):"
+            )
+            logger.warning(response.text[:2000])
+            return
+
+        # Process each Excel link found
+        for link in excel_links:
+            # Make absolute URL
+            absolute_url = response.urljoin(link)
+            logger.info("Found Excel link: %s", absolute_url)
+
+            # Request the Excel file
+            yield scrapy.Request(
+                url=absolute_url,
+                callback=self.parse_excel,
+                meta={"original_url": response.url},
+            )
+
+    def parse_excel(self, response: Response) -> None:
+        """
+        Parse an Excel file downloaded from BCRA.
+
+        This method:
+        1. Validates the response
+        2. Creates adapters (fetcher, parser, normalizer, output)
+        3. Creates and executes the use case
+        4. Logs the results
+
+        Args:
+            response: Scrapy Response object containing Excel file
+        """
+        logger.info("Processing Excel file: %s", response.url)
+
+        # Validate response (best practice: check early)
+        if not self._is_valid_response(response):
+            logger.warning(
+                "Invalid response for Excel file %s: status %d",
+                response.url,
+                response.status,
+            )
+            return
+
         # Step 1: Create adapters (wire dependencies)
         # Following Dependency Injection pattern
         fetcher = AdapterScrapyDocumentFetcher(response)
-        parser = AdapterBcraParser()
-        normalizer = AdapterBcraNormalizer()
+        parser = AdapterBcraExcelParser()
+        normalizer = AdapterBcraMonetarioNormalizer()
         output = AdapterJsonOutput(output_file=JSON_OUTPUT_FILE)
 
         # Step 2: Create use case and inject dependencies
-        use_case = BcraUseCase(
+        use_case = BcraMonetarioUseCase(
             fetcher=fetcher,
             parser=parser,
             normalizer=normalizer,
@@ -140,7 +196,7 @@ class BcraSpider(scrapy.Spider):
             return False
 
         # Check that response has content
-        if not response.text or len(response.text.strip()) == 0:
+        if not response.body or len(response.body) == 0:
             return False
 
         return True

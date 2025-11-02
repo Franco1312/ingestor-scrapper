@@ -9,11 +9,16 @@ description = "Scrapy project with Clean Architecture (Ports & Adapters)"
 requires-python = ">=3.10"
 dependencies = [
     "scrapy>=2.11.0",
+    "beautifulsoup4>=4.12.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
 ]
 
 [tool.setuptools]

@@ -27,12 +27,12 @@ from ingestor_scrapper.adapters.outputs import (
     AdapterStdoutOutput,
 )
 from ingestor_scrapper.adapters.parsers import (
+    PARSER_REGISTRY,
     AdapterBcraParser,
     AdapterBs4Parser,
     AdapterCsvParser,
     AdapterExcelParser,
     AdapterPdfParser,
-    PARSER_REGISTRY,
 )
 
 __all__ = [
