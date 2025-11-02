@@ -43,3 +43,6 @@ Thumbs.db
 # Environment
 .python-version
 .venv-requirements.txt
+
+# Health monitoring
+.watch/
