@@ -24,6 +24,13 @@ ingestor_scrapper/
 │  ├─ parser_router.py     # ParserRouter (selecciona parser por ContentType)
 │  ├─ universal_ingest_use_case.py  # UniversalIngestUseCase (múltiples formatos)
 │  └─ tests/               # Tests de use cases
+├─ health/                 # Health monitoring watchdog
+│  ├─ __init__.py          # Health module exports
+│  ├─ config.py            # Carga configuración YAML/JSON
+│  ├─ checks.py            # Validaciones genéricas (status, size, schema, etc.)
+│  ├─ store.py             # Persistencia de métricas históricas
+│  ├─ notify.py            # Notificaciones (Email, Slack, stdout)
+│  └─ runner.py            # Orquestador de checks
 │
 ├─ adapters/               # Implementaciones (dependientes de frameworks)
 │  ├─ fetchers/
@@ -48,10 +55,11 @@ ingestor_scrapper/
 │     └─ json.py          # AdapterJsonOutput
 │
 └─ interface/              # Entrada/Delivery (spiders, CLI)
-   └─ spiders/
-      ├─ bcra_spider.py      # Spider para BCRA HTML (funciona)
-      ├─ bcra_monetario_spider.py  # Spider BCRA Excel (funciona)
-      └─ universal_spider.py  # Spider genérico con ParserRouter (ejemplo)
+   ├─ spiders/
+   │  ├─ bcra_spider.py      # Spider para BCRA HTML (funciona)
+   │  ├─ bcra_monetario_spider.py  # Spider BCRA Excel (funciona)
+   │  └─ universal_spider.py  # Spider genérico con ParserRouter (ejemplo)
+   └─ watch.py             # CLI para health checks
 ```
 
 ### Patrón Puertos y Adaptadores
@@ -116,6 +124,31 @@ scrapy crawl universal -a url="https://example.com"
 - `bcra_data.json` - Datos de BCRA Principales Variables (HTML)
 - `bcra_monetario_data.json` - Datos de BCRA Informe Monetario Diario (Excel)
 
+### Ejecutar health checks
+
+```bash
+# Ejecutar health check para un site
+python -m ingestor_scrapper.interface.watch bcra_principal
+
+# Modo dry-run (sin notificaciones)
+python -m ingestor_scrapper.interface.watch bcra_principal --dry-run
+
+# Con configuración personalizada
+python -m ingestor_scrapper.interface.watch bcra_principal --config custom.json
+```
+
+**Health checks configurados:**
+- `bcra_principal` - Monitorea página principal BCRA HTML
+- `bcra_series_excel` - Monitorea Excel de series temporales
+- `bcra_monetario_page` - Monitorea página de informe monetario
+
+**Notificaciones:**
+- Sin SMTP: Muestra resultados en stdout
+- Con SMTP (Gmail): Envía email a `ALERT_EMAIL`
+- Con Slack: Usa webhook de `SLACK_WEBHOOK_URL`
+
+**Métricas persisten en:** `.watch/metrics.json`
+
 ### Ejecutar tests
 
 ```bash
@@ -165,7 +198,8 @@ Para crear un nuevo spider, consulta: [Arquitectura Escalable](docs/ARQUITECTURA
 - **`core/`**: Capa de dominio con entidades y puertos (interfaces). Framework-agnóstico.
 - **`application/`**: Casos de uso que orquestan los puertos. Incluye tests.
 - **`adapters/`**: Implementaciones concretas de los puertos. Incluye tests organizados por módulo.
-- **`interface/`**: Puntos de entrada (spiders de Scrapy, futuros CLI, APIs, etc.).
+- **`health/`**: Health monitoring watchdog para detectar roturas de scraping.
+- **`interface/`**: Puntos de entrada (spiders de Scrapy, CLI de health checks, futuros APIs, etc.).
 
 ## 🗺️ Roadmap
 
@@ -213,7 +247,7 @@ ruff format ingestor_scrapper/ tests/
 Tests organizados por módulo:
 - `adapters/parsers/tests/` - Tests de parsers (13 tests)
 - `adapters/normalizers/tests/` - Tests de normalizers (9 tests)  
-- `application/tests/` - Tests de use cases (8 tests)
+- `application/tests/` - Tests de use cases (8 tests) + health checks (49 tests)
 
 ## 📚 Referencias
 
