@@ -1,0 +1,48 @@
+{
+  "bcra_principal": {
+    "url": "https://www.bcra.gob.ar/PublicacionesEstadisticas/Principales_variables.asp",
+    "type": "html",
+    "selectors": [
+      "table",
+      "tr",
+      "td"
+    ],
+    "min_bytes": 10000,
+    "content_type": "text/html",
+    "verify_ssl": false,
+    "checksum_window": 10,
+    "notify": {
+      "email_env": "ALERT_EMAIL"
+    }
+  },
+  "bcra_series_excel": {
+    "url": "https://www.bcra.gob.ar/Pdfs/PublicacionesEstadisticas/series.xlsm",
+    "type": "excel",
+    "min_bytes": 100000,
+    "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "expected_columns": [],
+    "min_rows": 100,
+    "verify_ssl": false,
+    "checksum_window": 20,
+    "notify": {
+      "email_env": "ALERT_EMAIL"
+    }
+  },
+  "bcra_monetario_page": {
+    "url": "https://www.bcra.gob.ar/PublicacionesEstadisticas/Informe_monetario_diario.asp",
+    "type": "html",
+    "selectors": [
+      "a[href*='.xls']",
+      "a[href*='.xlsx']",
+      "a[href*='Informe_monetario']"
+    ],
+    "min_bytes": 5000,
+    "content_type": "text/html",
+    "verify_ssl": false,
+    "checksum_window": 10,
+    "notify": {
+      "email_env": "ALERT_EMAIL"
+    }
+  }
+}
+

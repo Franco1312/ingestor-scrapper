@@ -29,6 +29,7 @@ env/
 output.json
 *.json
 !requirements.txt
+!configs/*.json
 
 # OS
 .DS_Store
