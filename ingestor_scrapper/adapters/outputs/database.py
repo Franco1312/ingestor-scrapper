@@ -203,7 +203,7 @@ class AdapterDatabaseOutput(OutputPort):
         # Default mappings for BCRA Monetario
         default_mappings = {
             "reservas_internacionales_usd": "1",
-            "tipo_cambio_oficial": "bcra.tipo_cambio_oficial",
+            "tipo_cambio_oficial": "bcra.tipo_cambio_mayorista",
             "base_monetaria_total_ars": "15",
         }
 
