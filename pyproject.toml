@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ingestor-scrapper"
+version = "0.1.0"
+description = "Scrapy project with Clean Architecture (Ports & Adapters)"
+requires-python = ">=3.10"
+dependencies = [
+    "scrapy>=2.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+]
+
+[tool.setuptools]
+packages = ["ingestor_scrapper"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.ruff]
+line-length = 79
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # Ignore line too long (we'll use ruff format for that)
+    "FIX002",  # Ignore TODO comments warnings
+    "FIX003",  # Ignore TODO comments warnings
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
