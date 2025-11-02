@@ -12,10 +12,11 @@ Best practices applied:
 - Specific exception handling
 - Clear error messages
 
-Run with: scrapy crawl bcra_monetario
+Run with: scrapy crawl bcra_monetario [--output=json|database]
 """
 
 import logging
+import os
 
 import scrapy  # type: ignore
 from scrapy.http import Response  # type: ignore
@@ -24,7 +25,10 @@ from ingestor_scrapper.adapters.fetchers import AdapterScrapyDocumentFetcher
 from ingestor_scrapper.adapters.normalizers import (
     AdapterBcraMonetarioNormalizer,
 )
-from ingestor_scrapper.adapters.outputs import AdapterJsonOutput
+from ingestor_scrapper.adapters.outputs import (
+    AdapterDatabaseOutput,
+    AdapterJsonOutput,
+)
 from ingestor_scrapper.adapters.parsers.bcra_excel import (
     AdapterBcraExcelParser,
 )
@@ -41,6 +45,15 @@ BCRA_MONETARIO_URL = (
 )
 BCRA_DOMAINS = ["bcra.gob.ar", "www.bcra.gob.ar"]
 JSON_OUTPUT_FILE = "bcra_monetario_data.json"
+
+# Database configuration from environment
+DB_HOST = os.environ.get(
+    "DB_HOST", "base-instances.cvmcecq8y08d.us-east-2.rds.amazonaws.com"
+)
+DB_NAME = os.environ.get("DB_NAME", "ingestordb")
+DB_USER = os.environ.get("DB_USER", "masteruser")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "bluesunday12")
+DB_PORT = int(os.environ.get("DB_PORT", "5432"))
 
 
 class BcraMonetarioSpider(scrapy.Spider):
@@ -62,6 +75,16 @@ class BcraMonetarioSpider(scrapy.Spider):
     name = "bcra_monetario"
     allowed_domains = BCRA_DOMAINS
     start_urls = [BCRA_MONETARIO_URL]
+
+    def __init__(self, output="json", *args, **kwargs):
+        """
+        Initialize spider with output configuration.
+
+        Args:
+            output: Output type ('json' or 'database')
+        """
+        super().__init__(*args, **kwargs)
+        self.output_type = output.lower()
 
     def parse(self, response: Response) -> None:
         """
@@ -145,7 +168,20 @@ class BcraMonetarioSpider(scrapy.Spider):
         fetcher = AdapterScrapyDocumentFetcher(response)
         parser = AdapterBcraExcelParser()
         normalizer = AdapterBcraMonetarioNormalizer()
-        output = AdapterJsonOutput(output_file=JSON_OUTPUT_FILE)
+
+        # Select output adapter based on configuration
+        if self.output_type == "database":
+            output = AdapterDatabaseOutput(
+                db_host=DB_HOST,
+                db_name=DB_NAME,
+                db_user=DB_USER,
+                db_password=DB_PASSWORD,
+                db_port=DB_PORT,
+            )
+            logger.info("Using database output")
+        else:
+            output = AdapterJsonOutput(output_file=JSON_OUTPUT_FILE)
+            logger.info("Using JSON output")
 
         # Step 2: Create use case and inject dependencies
         use_case = BcraMonetarioUseCase(
